@@ -11,7 +11,7 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Recommended Run (Scenario B, rho ≈ 0.85)
+### Recommended Run (Scenario B, rho ~ 0.85)
 
 ```bash
 python -m src.run_sim --scenario B --replications 20 --seed 123 --warmup 10000 --horizon 200000
