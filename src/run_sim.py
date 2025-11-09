@@ -86,7 +86,20 @@ def run_replications(
 
 def summarize(results: Iterable[SimulationResult]) -> pd.DataFrame:
     df = pd.DataFrame([r.as_dict() for r in results])
-    numeric_cols = ["L", "Lq", "utilization", "W_mean", "Wq_mean", "n_samples"]
+    numeric_cols = [
+        "L",
+        "Lq",
+        "utilization",
+        "W_mean",
+        "Wq_mean",
+        "n_samples",
+        "obs_time",
+        "arrivals_obs",
+        "lambda_hat",
+        "rho_theory",
+        "little_L_error",
+        "little_Lq_error",
+    ]
     df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors="coerce")
     return df
 
@@ -106,15 +119,24 @@ def main() -> None:
     df.to_csv(args.outputs, index=False)
 
     theory = mm1_theory(lam, mu).as_dict()
-    sim_means = df[["L", "Lq", "W_mean", "Wq_mean", "utilization"]].mean()
+    sim_means = df[["L", "Lq", "W_mean", "Wq_mean", "utilization", "lambda_hat"]].mean()
+    obs_time = df["obs_time"].iloc[0] if not df.empty else 0.0
+    arrivals_total = int(df["arrivals_obs"].sum())
+    little_L_gap = df["little_L_error"].mean()
+    little_Lq_gap = df["little_Lq_error"].mean()
 
     print("\nTeoría M/M/1:")
     for key, value in theory.items():
         print(f"  {key:<3}: {value:>10.6f}")
 
     print("\nSimulación (promedios empíricos):")
-    for key in ["L", "Lq", "W_mean", "Wq_mean", "utilization"]:
+    for key in ["L", "Lq", "W_mean", "Wq_mean", "utilization", "lambda_hat"]:
         print(f"  {key:<11}: {sim_means[key]:>10.6f}")
+
+    print("\nVentana de observación:")
+    print(f"  obs_time   : {obs_time:>10.2f}")
+    print(f"  arrivals   : {arrivals_total:>10d}")
+    print(f"  lambda_hat : {sim_means['lambda_hat']:>10.6f}")
 
     print("\nErrores relativos:")
     mapping = {"L": "L", "Lq": "Lq", "W_mean": "W", "Wq_mean": "Wq", "utilization": "rho"}
@@ -122,6 +144,10 @@ def main() -> None:
         err = relative_error(sim_means[sim_key], theory[th_key])
         readable = th_key if sim_key == "utilization" else sim_key
         print(f"  {readable:<11}: {err * 100:>9.3f}%")
+
+    print("\nVerificación Ley de Little:")
+    print(f"  L vs lambda*W   : {little_L_gap * 100:>9.3f}%")
+    print(f"  Lq vs lambda*Wq : {little_Lq_gap * 100:>9.3f}%")
 
     print(f"\nResultados guardados en {args.outputs.resolve()}")
 
