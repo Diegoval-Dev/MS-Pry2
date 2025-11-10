@@ -212,13 +212,13 @@ def main() -> None:
     print(f"  Lq vs lambda*Wq : {little_Lq_gap * 100:>9.3f}%")
 
     if summary_lookup:
-        print("\nIC95 (media ± half-width):")
+        print("\nIC95 (media +/- half-width):")
         for metric in ("L", "W_mean"):
             row = summary_lookup.get(metric)
             if not row:
                 continue
             print(
-                f"  {metric:<11}: ±{row['ci95_halfwidth']:>10.6f} "
+                f"  {metric:<11}: +/-{row['ci95_halfwidth']:>10.6f} "
                 f"({row['ci95_rel_pct']:>6.3f}% del promedio)"
             )
 
