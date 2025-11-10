@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -49,22 +50,54 @@ def compute_metrics(df: pd.DataFrame) -> Tuple[pd.Series, Dict[str, float]]:
     return sim_means, theory
 
 
-def plot_bar_comparison(sim_means: pd.Series, theory: Dict[str, float], out: Path) -> None:
+def compute_error_bars(df: pd.DataFrame, metrics: list[str]) -> list[float]:
+    if len(df) < 2:
+        return [0.0 for _ in metrics]
+    errs = []
+    n = len(df)
+    for metric in metrics:
+        std = float(df[metric].std(ddof=1))
+        errs.append(1.96 * std / math.sqrt(n))
+    return errs
+
+
+def plot_bar_comparison(
+    df: pd.DataFrame, sim_means: pd.Series, theory: Dict[str, float], out: Path
+) -> None:
     labels = ["L", "Lq", "W", "Wq"]
     sim_values = [sim_means["L"], sim_means["Lq"], sim_means["W_mean"], sim_means["Wq_mean"]]
     theory_values = [theory["L"], theory["Lq"], theory["W"], theory["Wq"]]
+    errors = compute_error_bars(df, ["L", "Lq", "W_mean", "Wq_mean"])
 
     x = range(len(labels))
     width = 0.35
 
     fig, ax = plt.subplots(figsize=(8, 4))
-    ax.bar([i - width / 2 for i in x], theory_values, width=width, label="Teoría")
-    ax.bar([i + width / 2 for i in x], sim_values, width=width, label="Simulación")
+    ax.bar([i - width / 2 for i in x], theory_values, width=width, label="Teoria")
+    ax.bar(
+        [i + width / 2 for i in x],
+        sim_values,
+        width=width,
+        label="Simulacion",
+        yerr=errors,
+        capsize=5,
+        error_kw={"elinewidth": 1, "alpha": 0.8},
+    )
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels)
     ax.set_ylabel("Valor")
-    ax.set_title("Comparación teoría vs. simulación")
+    ax.set_title("Comparacion teoria vs. simulacion (IC95)")
     ax.legend()
+    for i, err in enumerate(errors):
+        if err <= 0:
+            continue
+        ax.text(
+            i + width / 2,
+            sim_values[i] + err + 0.02 * max(sim_values),
+            f"±{err:.2f}",
+            ha="center",
+            fontsize=8,
+        )
     fig.tight_layout()
     fig.savefig(out, dpi=150)
     plt.close(fig)
@@ -72,7 +105,8 @@ def plot_bar_comparison(sim_means: pd.Series, theory: Dict[str, float], out: Pat
 
 def plot_histogram(series: pd.Series, title: str, xlabel: str, out: Path) -> None:
     fig, ax = plt.subplots(figsize=(6, 4))
-    ax.hist(series, bins=min(10, len(series)), color="#4c72b0", alpha=0.8)
+    bins = min(20, max(5, len(series)))
+    ax.hist(series, bins=bins, color="#4c72b0", alpha=0.85, edgecolor="white")
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel("Frecuencia")
@@ -84,9 +118,9 @@ def plot_histogram(series: pd.Series, title: str, xlabel: str, out: Path) -> Non
 def plot_replication_series(series: pd.Series, ylabel: str, out: Path) -> None:
     fig, ax = plt.subplots(figsize=(8, 4))
     ax.plot(series.index + 1, series.values, marker="o")
-    ax.set_xlabel("Replicación")
+    ax.set_xlabel("Replicacion")
     ax.set_ylabel(ylabel)
-    ax.set_title(f"{ylabel} por replicación")
+    ax.set_title(f"{ylabel} por replicacion")
     fig.tight_layout()
     fig.savefig(out, dpi=150)
     plt.close(fig)
@@ -99,8 +133,10 @@ def main() -> None:
 
     args.reports_dir.mkdir(parents=True, exist_ok=True)
 
-    plot_bar_comparison(sim_means, theory, args.reports_dir / "comp_teo_sim.png")
-    plot_histogram(df["Wq_mean"], "Distribución de Wq_mean", "Wq_mean", args.reports_dir / "hist_wq.png")
+    plot_bar_comparison(df, sim_means, theory, args.reports_dir / "comp_teo_sim.png")
+    plot_histogram(
+        df["Wq_mean"], "Distribucion de Wq_mean", "Wq_mean", args.reports_dir / "hist_wq.png"
+    )
     plot_replication_series(df["L"], "L promedio", args.reports_dir / "serie_L.png")
 
     print(f"Figuras guardadas en {args.reports_dir.resolve()}")
