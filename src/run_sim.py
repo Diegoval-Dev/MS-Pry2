@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 from pathlib import Path
 from typing import Iterable, Tuple
 
@@ -100,8 +101,65 @@ def summarize(results: Iterable[SimulationResult]) -> pd.DataFrame:
         "little_L_error",
         "little_Lq_error",
     ]
-    df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors="coerce")
+    if not df.empty:
+        df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors="coerce")
     return df
+
+
+def compute_summary(df: pd.DataFrame, theory: dict[str, float]) -> tuple[pd.DataFrame, dict[str, dict[str, float]]]:
+    if df.empty:
+        return pd.DataFrame(), {}
+
+    n = len(df)
+    lam = float(df["lam"].iloc[0])
+    mu = float(df["mu"].iloc[0])
+    warmup = float(df["warmup"].iloc[0])
+    horizon = float(df["horizon"].iloc[0])
+
+    rows = []
+    lookup: dict[str, dict[str, float]] = {}
+
+    def add_metric(name: str, theory_key: str | None) -> None:
+        series = df[name]
+        mean = float(series.mean())
+        std = float(series.std(ddof=1)) if n > 1 else 0.0
+        half = 1.96 * std / math.sqrt(n) if n > 1 else 0.0
+        rel_half = (half / mean * 100) if mean else 0.0
+        theory_value = theory[theory_key] if theory_key else (lam if name == "lambda_hat" else float("nan"))
+        rel_err = relative_error(mean, theory_value) * 100 if theory_key else float("nan")
+
+        row = {
+            "metric": name,
+            "mean": mean,
+            "std": std,
+            "ci95_halfwidth": half,
+            "ci95_rel_pct": rel_half,
+            "theory": theory_value,
+            "relative_error_pct": rel_err,
+            "replications": n,
+            "lam": lam,
+            "mu": mu,
+            "warmup": warmup,
+            "horizon": horizon,
+        }
+        rows.append(row)
+        lookup[name] = row
+
+    metric_mapping = [
+        ("L", "L"),
+        ("Lq", "Lq"),
+        ("W_mean", "W"),
+        ("Wq_mean", "Wq"),
+        ("utilization", "rho"),
+    ]
+    for sim_key, th_key in metric_mapping:
+        add_metric(sim_key, th_key)
+
+    add_metric("lambda_hat", None)
+    add_metric("little_L_error", None)
+    add_metric("little_Lq_error", None)
+
+    return pd.DataFrame(rows), lookup
 
 
 def ensure_parent(path: Path) -> None:
@@ -119,6 +177,10 @@ def main() -> None:
     df.to_csv(args.outputs, index=False)
 
     theory = mm1_theory(lam, mu).as_dict()
+    summary_df, summary_lookup = compute_summary(df, theory)
+    summary_path = args.outputs.parent / "summary.csv"
+    summary_df.to_csv(summary_path, index=False)
+
     sim_means = df[["L", "Lq", "W_mean", "Wq_mean", "utilization", "lambda_hat"]].mean()
     obs_time = df["obs_time"].iloc[0] if not df.empty else 0.0
     arrivals_total = int(df["arrivals_obs"].sum())
@@ -149,7 +211,19 @@ def main() -> None:
     print(f"  L vs lambda*W   : {little_L_gap * 100:>9.3f}%")
     print(f"  Lq vs lambda*Wq : {little_Lq_gap * 100:>9.3f}%")
 
+    if summary_lookup:
+        print("\nIC95 (media ± half-width):")
+        for metric in ("L", "W_mean"):
+            row = summary_lookup.get(metric)
+            if not row:
+                continue
+            print(
+                f"  {metric:<11}: ±{row['ci95_halfwidth']:>10.6f} "
+                f"({row['ci95_rel_pct']:>6.3f}% del promedio)"
+            )
+
     print(f"\nResultados guardados en {args.outputs.resolve()}")
+    print(f"Resumen guardado en {summary_path.resolve()}")
 
 
 if __name__ == "__main__":
