@@ -36,8 +36,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run replicated simulations for an M/M/1 queue."
     )
-    parser.add_argument("--lam", type=float, help="Arrival rate λ (required unless --scenario).")
-    parser.add_argument("--mu", type=float, help="Service rate μ (required unless --scenario).")
+    parser.add_argument("--lam", type=float, help="Arrival rate lambda (required unless --scenario).")
+    parser.add_argument("--mu", type=float, help="Service rate mu (required unless --scenario).")
     parser.add_argument(
         "--scenario",
         type=str,
@@ -58,7 +58,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def resolve_rates(args: argparse.Namespace) -> Tuple[float, float]:
-    """Return λ and μ based on scenario or explicit arguments."""
+    """Return lambda and mu based on scenario or explicit arguments."""
     if args.scenario:
         params = get_params(args.scenario, seed=args.seed, warmup=args.warmup, horizon=args.horizon)
         return params.lam, params.mu
@@ -187,15 +187,15 @@ def main() -> None:
     little_L_gap = df["little_L_error"].mean()
     little_Lq_gap = df["little_Lq_error"].mean()
 
-    print("\nTeoría M/M/1:")
+    print("\nTeoria M/M/1:")
     for key, value in theory.items():
         print(f"  {key:<3}: {value:>10.6f}")
 
-    print("\nSimulación (promedios empíricos):")
+    print("\nSimulacion (promedios empiricos):")
     for key in ["L", "Lq", "W_mean", "Wq_mean", "utilization", "lambda_hat"]:
         print(f"  {key:<11}: {sim_means[key]:>10.6f}")
 
-    print("\nVentana de observación:")
+    print("\nVentana de observacion:")
     print(f"  obs_time   : {obs_time:>10.2f}")
     print(f"  arrivals   : {arrivals_total:>10d}")
     print(f"  lambda_hat : {sim_means['lambda_hat']:>10.6f}")
@@ -207,7 +207,7 @@ def main() -> None:
         readable = th_key if sim_key == "utilization" else sim_key
         print(f"  {readable:<11}: {err * 100:>9.3f}%")
 
-    print("\nVerificación Ley de Little:")
+    print("\nVerificacion Ley de Little:")
     print(f"  L vs lambda*W   : {little_L_gap * 100:>9.3f}%")
     print(f"  Lq vs lambda*Wq : {little_Lq_gap * 100:>9.3f}%")
 
