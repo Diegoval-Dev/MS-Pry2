@@ -3,7 +3,3 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 *.pyc
-outputs/*
-!outputs/.gitkeep
-reports/*
-!reports/.gitkeep

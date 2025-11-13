@@ -1,0 +1,5 @@
+Al incrementar g de 1 a 4, L pasa de 5.64 a 7.34 (aumento leve por mayor capacidad), mientras que Lq cae de 4.79 a 3.94. Los tiempos promedio se desploman: W desciende de 6.63 a 2.16 y Wq de 5.63 a 1.16; la probabilidad de espera baja de 0.85 a 0.69.
+
+La concordancia teoria-simulacion es solida: los errores relativos maximos en L y W son 0.53% y 0.56%, muy por debajo del umbral del 10%. Ademas, los half-width de los IC95 representan a lo sumo 1.82% de la media en L y 1.73% en W, lo que confirma la estabilidad de los estimadores.
+
+La metrica de decision automatizada (modo weights (alpha=0.60, beta=0.40)) selecciona g=4 con score 0.97. g=3 captura 71.10% de la reduccion de Wq frente a g=1, mientras que g=4 solo aporta 0.47 unidades adicionales, por lo que g=3 entrega la mayor parte de la mejora a un costo moderado.

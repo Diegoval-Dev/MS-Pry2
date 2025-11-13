@@ -35,6 +35,8 @@ class MM1Params:
 class SimulationResult:
     """Container for the aggregated outputs of one replication."""
 
+    model: str
+    g: int
     lam: float
     mu: float
     seed: int
@@ -45,6 +47,8 @@ class SimulationResult:
     utilization: float
     W_mean: float
     Wq_mean: float
+    Pwait_sim: float
+    Pwait_theory: float
     n_samples: int
     obs_time: float
     arrivals_obs: int
@@ -76,6 +80,7 @@ class MM1System:
         self.last_event_time = 0.0
         self.busy_start: Optional[float] = None
         self.arrivals_obs = 0
+        self.waited_count = 0
 
     def _exp(self, rate: float) -> float:
         """Draw an exponential sample handling the λ=0 case upstream."""
@@ -119,6 +124,8 @@ class MM1System:
         if arrival_time >= self.params.warmup:
             self.wait_samples.append(wait)
             self.system_samples.append(departure_time - arrival_time)
+            if wait > 0:
+                self.waited_count += 1
 
         if self.queue:
             queued_arrival = self.queue.popleft()
@@ -160,8 +167,11 @@ def run_mm1(params: MM1Params) -> SimulationResult:
     """Run one M/M/1 replication and return aggregated statistics."""
     obs_time = max(params.horizon - params.warmup, 0.0)
     rho_theory = params.lam / params.mu
+    pwait_theory = rho_theory
     if params.lam == 0:
         return SimulationResult(
+            model="mm1",
+            g=1,
             lam=params.lam,
             mu=params.mu,
             seed=params.seed,
@@ -172,6 +182,8 @@ def run_mm1(params: MM1Params) -> SimulationResult:
             utilization=0.0,
             W_mean=0.0,
             Wq_mean=0.0,
+            Pwait_sim=0.0,
+            Pwait_theory=pwait_theory,
             n_samples=0,
             obs_time=obs_time,
             arrivals_obs=0,
@@ -205,7 +217,12 @@ def run_mm1(params: MM1Params) -> SimulationResult:
     little_L_error = 0.0 if L == 0 else abs(L - little_L) / L
     little_Lq_error = 0.0 if Lq == 0 else abs(Lq - little_Lq) / Lq
 
+    n_samples = len(system.system_samples)
+    pwait_sim = (system.waited_count / n_samples) if n_samples > 0 else 0.0
+
     return SimulationResult(
+        model="mm1",
+        g=1,
         lam=params.lam,
         mu=params.mu,
         seed=params.seed,
@@ -216,7 +233,9 @@ def run_mm1(params: MM1Params) -> SimulationResult:
         utilization=utilization,
         W_mean=W_mean,
         Wq_mean=Wq_mean,
-        n_samples=len(system.system_samples),
+        Pwait_sim=pwait_sim,
+        Pwait_theory=pwait_theory,
+        n_samples=n_samples,
         obs_time=obs_time,
         arrivals_obs=system.arrivals_obs,
         lambda_hat=lambda_hat,

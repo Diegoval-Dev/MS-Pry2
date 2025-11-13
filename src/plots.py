@@ -11,9 +11,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 try:
-    from sim import mm1_theory
+    from sim import mm1_theory, mmg_theory
 except ModuleNotFoundError:  # pragma: no cover
-    from .sim import mm1_theory
+    from .sim import mm1_theory, mmg_theory
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,7 +45,13 @@ def load_results(path: Path) -> pd.DataFrame:
 def compute_metrics(df: pd.DataFrame) -> Tuple[pd.Series, Dict[str, float]]:
     lam = float(df["lam"].iloc[0])
     mu = float(df["mu"].iloc[0])
-    theory = mm1_theory(lam, mu).as_dict()
+    model = df["model"].iloc[0] if "model" in df.columns else "mm1"
+    if model == "mmg":
+        g = int(df["g"].iloc[0])
+        theory = mmg_theory(lam, mu, g).as_dict()
+    else:
+        theory = mm1_theory(lam, mu).as_dict()
+        theory.setdefault("Pwait", theory["rho"])
     sim_means = df[["L", "Lq", "W_mean", "Wq_mean", "utilization"]].mean()
     return sim_means, theory
 
@@ -94,7 +100,7 @@ def plot_bar_comparison(
         ax.text(
             i + width / 2,
             sim_values[i] + err + 0.02 * max(sim_values),
-            f"±{err:.2f}",
+            f"+/-{err:.2f}",
             ha="center",
             fontsize=8,
         )
